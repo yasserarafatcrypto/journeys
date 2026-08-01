@@ -1,0 +1,37 @@
+name: journeys-sync
+
+on:
+  schedule:
+    - cron: '30 22 * * *'   # 06:30 Singapore, every day
+  workflow_dispatch: {}      # and a Run workflow button for testing
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install python-dateutil icalendar cryptography
+
+      - name: Sync inbox into events.json
+        env:
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          JOURNEYS_KEY: ${{ secrets.JOURNEYS_KEY }}
+        run: python journeys_sync.py
+
+      - name: Commit if changed
+        run: |
+          git config user.name "journeys-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add events.enc
+          git diff --cached --quiet || git commit -m "sync: $(date -u +%F)"
+          git push
